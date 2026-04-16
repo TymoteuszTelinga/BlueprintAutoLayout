@@ -27,9 +27,8 @@ public:
 
     bool ImportGraph(const std::filesystem::path& importpath);
     void CreateLayout();
+    std::pair<float, float> GetGraphCenter() const;
     void ExportGraph(const std::filesystem::path& exportPath);
-
-    void GenerateData();
 
     const std::unordered_map<uint32_t, Node>& GetNodes() const { return m_Nodes; };
     const std::vector<Edge>& GetEdges() const { return m_Edges; };

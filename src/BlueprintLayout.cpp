@@ -4,7 +4,6 @@
 #include <yaml-cpp/yaml.h>
 #include <fstream>
 #include <set>
-//#include <stack>
 #include <queue>
 
 bool BlueprintAutoLayout::ImportGraph(const std::filesystem::path& importpath)
@@ -41,15 +40,14 @@ void BlueprintAutoLayout::CreateLayout()
 {
     //node ID to childrens ID
     std::unordered_map<uint32_t, std::vector<uint32_t>> childrens;
-    //std::unordered_map<uint32_t, std::vector<uint32_t>> parents;
+    std::unordered_map<uint32_t, std::vector<uint32_t>> parents;
     std::set<uint32_t> hasParent;
     for (const Edge& edge : m_Edges)
     {
         childrens[edge.From].push_back(edge.To);
-        //parents[edge.To].push_back(edge.From);
+        parents[edge.To].push_back(edge.From);
         hasParent.insert(edge.To);
     }
-
 
     uint32_t entryNode = -1;//fake node
     for (auto [id, node] : m_Nodes)
@@ -82,70 +80,93 @@ void BlueprintAutoLayout::CreateLayout()
         }
     }
 
-    //layerID -> layerHeight
-    std::unordered_map<int, int> layerHeight;
-    for (auto [id, depth] : layer)
+    //Layer to nodes list;
+    std::map<int, std::vector<uint32_t>> layers;
+    for (auto& [id, depth] : layer)
+        layers[depth].push_back(id);
+
+    //minimize egde crossings
+    std::unordered_map<uint32_t, float> nodeOrder;
+    for (auto& [depth, nodes] : layers)
+        for (int i = 0; i < nodes.size(); i++)
+            nodeOrder[nodes[i]] = i;
+
+    for (int pass = 0; pass < 4; pass++) 
     {
-        if (id == -1)
+        // Top-down
+        for (auto& [depth, nodes] : layers)
         {
-            continue;
+            for (uint32_t node : nodes)
+            {
+                auto& parentsIds = parents[node];
+                if (parentsIds.empty()) 
+                    continue;
+
+                float avg = 0;
+                for (uint32_t parent : parentsIds)
+                {
+                    avg += nodeOrder[parent];
+                }
+                nodeOrder[node] = avg / parentsIds.size();
+            }
+            // Re-sort layer by new xOrder, keep relative positions stable
+            std::stable_sort(nodes.begin(), nodes.end(), [&](int a, int b) { return nodeOrder[a] < nodeOrder[b]; });
+            for (int i = 0; i < nodes.size(); i++)
+                nodeOrder[nodes[i]] = i;
         }
-        m_Nodes[id].PosX = depth;
-        m_Nodes[id].PosY = layerHeight[depth];
-        layerHeight[depth]++;
+
+        // Bottom-up (same but using children instead of parents)
+        for (auto it = layers.rbegin(); it != layers.rend(); ++it) 
+        {
+            auto& nodes = it->second;
+            for (int node : nodes)
+            {
+                auto& childrensIds = childrens[node];
+                if (childrensIds.empty()) 
+                    continue;
+                float avg = 0;
+                for (int child : childrensIds)
+                {
+                    avg += nodeOrder[child];
+                }
+                nodeOrder[node] = avg / childrensIds.size();
+            }
+
+            std::stable_sort(nodes.begin(), nodes.end(), [&](int a, int b) { return nodeOrder[a] < nodeOrder[b]; });
+
+            for (int i = 0; i < nodes.size(); i++)
+                nodeOrder[nodes[i]] = i;
+        }
     }
 
+    for (auto& [depth, nodes] : layers) 
+    {
+        float totalWidth = nodes.size();
+        float startX = -totalWidth / 2.f;  // center around 0
 
-    //Column to its height
-    //std::unordered_map<int32_t, uint32_t> ColumnHeight;
-    //std::set<uint32_t> VisitedNodes;
-    //std::stack<uint32_t> NodesIDS;
-    //for (auto [id, node] : m_Nodes)
-    //{
-    //    if (VisitedNodes.count(id))
-    //    {
-    //        continue;
-    //    }
+        for (int i = 0; i < nodes.size(); i++)
+        {
+            m_Nodes[nodes[i]].PosX = depth;
+            m_Nodes[nodes[i]].PosY = startX + i;
+        }
+    }
 
-    //    for (const Edge& edge : m_Edges)
-    //    {
-    //        if (edge.From == id)
-    //        {
-    //            Nodes
-    //        }
-    //    }
-    //}
+    m_Nodes.erase(-1);
+}
 
-    //for (auto [id, node] : m_Nodes)
-    //{
-    //    VisitedNodes.insert(node.ID);
+std::pair<float, float> BlueprintAutoLayout::GetGraphCenter() const
+{
+    float x = 0;
+    float y = 0;
+    float count = 0.f;
 
-    //    for (const Edge& edge : m_Edges)
-    //    {
-    //        if (edge.From == node.ID)
-    //        {
-    //            Node& target = m_Nodes[edge.To];
-    //            if (VisitedNodes.find(target.ID) != VisitedNodes.end())
-    //            {
-    //                if (VisitedNodes.find(id) == VisitedNodes.end())
-    //                {
-    //                    node.PosX = target.PosX - 1;
-    //                    node.PosY = ColumnHeight[node.PosX];
-    //                    ColumnHeight[node.PosY]++;
-
-    //                    VisitedNodes.insert(id);//lock parens
-    //                    continue;
-    //                }
-    //            }
-
-    //            target.PosX = node.PosX + 1;
-    //            target.PosY = ColumnHeight[target.PosX];
-    //            ColumnHeight[target.PosX]++;
-
-    //            VisitedNodes.insert(target.ID); //lock target node position
-    //        }
-    //    }
-    //}
+    for (auto [id, node] : m_Nodes)
+    {
+        x += m_Nodes.at(id).PosX;
+        y += m_Nodes.at(id).PosY;
+        count += 1.f;
+    }
+    return { x / count, y / count };
 }
 
 void BlueprintAutoLayout::ExportGraph(const std::filesystem::path& exportPath)
@@ -177,51 +198,4 @@ void BlueprintAutoLayout::ExportGraph(const std::filesystem::path& exportPath)
 
     std::ofstream file(exportPath);
     file << out.c_str();
-}
-
-void BlueprintAutoLayout::GenerateData()
-{
-    {
-        Node n;
-        n.ID = 1;
-        n.Name = "Event BeginPlay";
-        m_Nodes[n.ID] = n;
-    }
-    {
-        Node n;
-        n.ID = 2;
-        n.Name = "Branch";
-        m_Nodes[n.ID] = n;
-    }
-    {
-        Node n;
-        n.ID = 3;
-        n.Name = "Play Sound (True)";
-        m_Nodes[n.ID] = n;
-    }
-    {
-        Node n;
-        n.ID = 4;
-        n.Name = "Spawn Actor (False)";
-        m_Nodes[n.ID] = n;
-    }
-
-    {
-        Edge e;
-        e.From = 1;
-        e.To = 2;
-        m_Edges.push_back(e);
-    }
-    {
-        Edge e;
-        e.From = 2;
-        e.To = 3;
-        m_Edges.push_back(e);
-    }
-    {
-        Edge e;
-        e.From = 2;
-        e.To = 4;
-        m_Edges.push_back(e);
-    }
 }

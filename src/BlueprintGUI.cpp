@@ -19,9 +19,6 @@ BlueprintGUI::BlueprintGUI()
     m_Camera.offset = Vector2(c_WindowWidth/2,c_WindowHeight/2);
     m_Camera.rotation = 0.f;
     m_Camera.zoom = 1.f;
-
-    m_AutoLayout.GenerateData();
-    m_AutoLayout.CreateLayout();
 }
 
 BlueprintGUI::~BlueprintGUI()
@@ -152,6 +149,8 @@ void BlueprintGUI::OpenFile()
     {
         m_AutoLayout.ImportGraph(outPath);
         m_AutoLayout.CreateLayout();
+        auto [x, y] = m_AutoLayout.GetGraphCenter();
+        m_CameraPos = { x * c_StepSizeX, y * c_StepSizeY };
         NFD_FreePathU8(outPath);
     }
 }

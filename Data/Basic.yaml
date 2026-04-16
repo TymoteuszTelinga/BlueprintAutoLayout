@@ -1,0 +1,24 @@
+Nodes:
+  - ID: 1
+    Name: Event BeginPlay
+    X: 0
+    Y: 0
+  - ID: 2
+    Name: Branch
+    X: 0
+    Y: 0
+  - ID: 3
+    Name: Play Sound (True)
+    X: 0
+    Y: 0
+  - ID: 4
+    Name: Spawn Actor (False)
+    X: 0
+    Y: 0
+Egdes:
+  - From: 1
+    To: 2
+  - From: 2
+    To: 3
+  - From: 2
+    To: 4

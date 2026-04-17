@@ -109,13 +109,13 @@ void BlueprintAutoLayout::CreateLayout()
                 }
                 nodeOrder[node] = avg / parentsIds.size();
             }
-            // Re-sort layer by new xOrder, keep relative positions stable
+            
             std::stable_sort(nodes.begin(), nodes.end(), [&](int a, int b) { return nodeOrder[a] < nodeOrder[b]; });
             for (int i = 0; i < nodes.size(); i++)
                 nodeOrder[nodes[i]] = i;
         }
 
-        // Bottom-up (same but using children instead of parents)
+        // Bottom-up
         for (auto it = layers.rbegin(); it != layers.rend(); ++it) 
         {
             auto& nodes = it->second;
@@ -133,7 +133,6 @@ void BlueprintAutoLayout::CreateLayout()
             }
 
             std::stable_sort(nodes.begin(), nodes.end(), [&](int a, int b) { return nodeOrder[a] < nodeOrder[b]; });
-
             for (int i = 0; i < nodes.size(); i++)
                 nodeOrder[nodes[i]] = i;
         }
@@ -142,7 +141,7 @@ void BlueprintAutoLayout::CreateLayout()
     for (auto& [depth, nodes] : layers) 
     {
         float totalWidth = nodes.size();
-        float startX = -totalWidth / 2.f;  // center around 0
+        float startX = -totalWidth / 2.f;
 
         for (int i = 0; i < nodes.size(); i++)
         {

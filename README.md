@@ -6,13 +6,6 @@ program służacy do automatycznego układania grafu w przestrzeni 2D na podstaw
 cmake,
 conan
 
-## budowa:
-```
-conan install . --output-folder=out/build/conan --build=missing -s build_type=Release
-cmake build
-```
-program został stworzony na platformie windows, inne platformy nie były testowane
-
 ## Urzytkowanie:
 po wskazaniu pliku z danymi do wczyania program automatycznie wczytuje dane ignorując pozycje wierzchołków zawarte w pliku, nastęmie uruchamia algorytm automatycznego rozmiestrzenia wierzchołków. Po stworzeniu układu program wyświetla graf na ekranie gdzie urzytkownik ma mozliwośc dokładnej ispekcji rezultatu.
 
